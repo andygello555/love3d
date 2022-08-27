@@ -39,3 +39,6 @@ luac.out
 *.hex
 
 .vscode/**
+
+# Smommit ignore
+.smommit/
