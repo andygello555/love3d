@@ -1,16 +1,21 @@
 File = require("file")
 Misc = require("misc")
+local shellsort = require("shellsort")
+
+local sqrt = math.sqrt
+local floor = math.floor
 
 Math3D = {}
 
-Math3D.Vec3D = {
+local Vec3D = {
     x = 0,
     y = 0,
     z = 0,
     w = 1,
 }
+Math3D.Vec3D = Vec3D
 
-function Math3D.Vec3D:new(o, x, y, z, w)
+function Vec3D:new(o, x, y, z, w)
     if not o then
         o = {
             x = x or 0,
@@ -25,13 +30,13 @@ function Math3D.Vec3D:new(o, x, y, z, w)
 end
 
 -- Get the dot product of two vectors
-function Math3D.Vec3D.dot(v1, v2)
+function Vec3D.dot(v1, v2)
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z
 end
 
 -- Get the cross product of two vectors
-function Math3D.Vec3D.cross(v1, v2)
-    return Math3D.Vec3D:new(nil,
+function Vec3D.cross(v1, v2)
+    return Vec3D:new(nil,
         v1.y * v2.z - v1.z * v2.y,
         v1.z * v2.x - v1.x * v2.z,
         v1.x * v2.y - v1.y * v2.x
@@ -39,25 +44,25 @@ function Math3D.Vec3D.cross(v1, v2)
 end
 
 -- Get the length of the vector
-function Math3D.Vec3D:length()
-    return math.sqrt(self:dot(self))
+function Vec3D:length()
+    return sqrt(self:dot(self))
 end
 
 -- Normalise the vector so that each component is between 0-1. This is done in-place.
-function Math3D.Vec3D:norm()
+function Vec3D:norm()
     -- We inline the length calculation to gain a speed boost
-    local l = math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+    local l = sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
     self.x = self.x / l
     self.y = self.y / l
     self.z = self.z / l
 end
 
 local VEC3D_COMPONENT_INDEX_MAPPING = {'x', 'y', 'z'}
-function Math3D.Vec3D.component(i)
+function Vec3D.component(i)
     return VEC3D_COMPONENT_INDEX_MAPPING[i]
 end
 
-function Math3D.Vec3D:offsetAndScale(offset, scale)
+function Vec3D:offsetAndScale(offset, scale)
     self.x = (self.x / self.w + offset.x) * scale.x
     self.y = (self.y / self.w + offset.y) * scale.y
     self.z = (self.z / self.w + offset.z) * scale.z
@@ -71,7 +76,7 @@ local VEC3D_OPERATOR_ACTIONS = {
     ['cml'] = function (u, v) return {u.x * v.x, u.y * v.y, u.z * v.z} end
 }
 
-function Math3D.Vec3D.rpn(ops)
+function Vec3D.rpn(ops)
     local stack = {}
     local actions = {
         ['number'] = function (op) table.insert(stack, op) end,
@@ -87,47 +92,48 @@ function Math3D.Vec3D.rpn(ops)
         actions[type(op)](op)
     end
     local result = table.remove(stack)
-    return Math3D.Vec3D:new(nil, result.x, result.y, result.z)
+    return Vec3D:new(nil, result.x, result.y, result.z)
 end
 
-function Math3D.Vec3D.cml(u, v)
-    return Math3D.Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['cml'](u, v)))
+function Vec3D.cml(u, v)
+    return Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['cml'](u, v)))
 end
 
-function Math3D.Vec3D.__add(u, v)
-    return Math3D.Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['add'](u, v)))
+function Vec3D.__add(u, v)
+    return Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['add'](u, v)))
 end
 
-function Math3D.Vec3D.__sub(u, v)
-    return Math3D.Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['sub'](u, v)))
+function Vec3D.__sub(u, v)
+    return Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['sub'](u, v)))
 end
 
-function Math3D.Vec3D.__mul(u, k)
-    return Math3D.Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['mul'](u, k)))
+function Vec3D.__mul(u, k)
+    return Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['mul'](u, k)))
 end
 
-function Math3D.Vec3D.__div(u, k)
-    return Math3D.Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['div'](u, k)))
+function Vec3D.__div(u, k)
+    return Vec3D:new(nil, unpack(VEC3D_OPERATOR_ACTIONS['div'](u, k)))
 end
 
-function Math3D.Vec3D.__eq(u, v)
+function Vec3D.__eq(u, v)
     return u.x == v.x and
            u.y == v.y and
            u.z == v.z
 end
 
-function Math3D.Vec3D:__tostring()
+function Vec3D:__tostring()
     return ("{%.8f, %.8f, %.8f}"):format(self.x, self.y, self.z)
 end
 
-Math3D.Colour = {
+local Colour = {
     r = 1,
     g = 1,
     b = 1,
     a = 1,
 }
+Math3D.Colour = Colour
 
-function Math3D.Colour:new(o, r, g, b, a)
+function Colour:new(o, r, g, b, a)
     if not o then
         o = {
             r = r or 1,
@@ -141,58 +147,62 @@ function Math3D.Colour:new(o, r, g, b, a)
     return o
 end
 
-Math3D.Triangle = {
+local Triangle = {
     vertices = {
-        Math3D.Vec3D:new(),
-        Math3D.Vec3D:new(),
-        Math3D.Vec3D:new(),
+        Vec3D:new(),
+        Vec3D:new(),
+        Vec3D:new(),
     },
-    normal = Math3D.Vec3D:new(),
-    colour = Math3D.Colour:new()
+    normal = Vec3D:new(),
+    colour = Colour:new()
 }
+Math3D.Triangle = Triangle
 
-function Math3D.Triangle:calcNorm()
-    local line1, line2 = Math3D.Vec3D:new(), Math3D.Vec3D:new()
-    self.normal = Math3D.Vec3D:new()
-    line1.x = self.vertices[2].x - self.vertices[1].x
-    line1.y = self.vertices[2].y - self.vertices[1].y
-    line1.z = self.vertices[2].z - self.vertices[1].z
+function Triangle:calcNorm()
+    do local line1, line2 = Vec3D:new(), Vec3D:new()
+        self.normal = Vec3D:new()
+        line1.x = self.vertices[2].x - self.vertices[1].x
+        line1.y = self.vertices[2].y - self.vertices[1].y
+        line1.z = self.vertices[2].z - self.vertices[1].z
 
-    line2.x = self.vertices[3].x - self.vertices[1].x
-    line2.y = self.vertices[3].y - self.vertices[1].y
-    line2.z = self.vertices[3].z - self.vertices[1].z
+        line2.x = self.vertices[3].x - self.vertices[1].x
+        line2.y = self.vertices[3].y - self.vertices[1].y
+        line2.z = self.vertices[3].z - self.vertices[1].z
 
-    self.normal.x = line1.y * line2.z - line1.z * line2.y
-    self.normal.y = line1.z * line2.x - line1.x * line2.z
-    self.normal.z = line1.x * line2.y - line1.y * line2.x
+        self.normal.x = line1.y * line2.z - line1.z * line2.y
+        self.normal.y = line1.z * line2.x - line1.x * line2.z
+        self.normal.z = line1.x * line2.y - line1.y * line2.x
+    end
 
     -- Inlining normalisation for a bit of a speed boost
-    local l = math.sqrt(self.normal.x * self.normal.x + self.normal.y * self.normal.y + self.normal.z * self.normal.z)
+    local l = sqrt(self.normal.x * self.normal.x + self.normal.y * self.normal.y + self.normal.z * self.normal.z)
     self.normal.x = self.normal.x / l
     self.normal.y = self.normal.y / l
     self.normal.z = self.normal.z / l
 end
 
-function Math3D.Triangle:new(o, v1, v2, v3, r, g, b, a)
+function Triangle:new(o, v1, v2, v3, r, g, b, a, calcNorm)
     if not o then
         o = {
             vertices = {
-                v1 or Math3D.Vec3D:new(),
-                v2 or Math3D.Vec3D:new(),
-                v3 or Math3D.Vec3D:new(),
+                v1 or Vec3D:new(),
+                v2 or Vec3D:new(),
+                v3 or Vec3D:new(),
             },
-            colour = Math3D.Colour:new(nil, r, g, b, a)
+            colour = Colour:new(nil, r, g, b, a)
         }
     end
     setmetatable(o, self)
     self.__index = self
-    o:calcNorm()
+    -- If calcNorm isn't provided or calcNorm is provided and is truthy, then we will
+    -- run calcNorm
+    if calcNorm == nil or calcNorm then o:calcNorm() end
     return o
 end
 
 -- Setter for first vertex of triangle. This will recalculate the normal for the triangle.
-function Math3D.Triangle:setVec1(v1, x, y, z, w)
-    self.vertices[1] = v1 or Math3D.Vec3D:new(nil,
+function Triangle:setVec1(v1, x, y, z, w)
+    self.vertices[1] = v1 or Vec3D:new(nil,
         x or self.vertices[1].x,
         y or self.vertices[1].y,
         z or self.vertices[1].z,
@@ -202,8 +212,8 @@ function Math3D.Triangle:setVec1(v1, x, y, z, w)
 end
 
 -- Setter for second vertex of triangle. This will recalculate the normal for the triangle.
-function Math3D.Triangle:setVec2(v2, x, y, z, w)
-    self.vertices[2] = v2 or Math3D.Vec3D:new(nil,
+function Triangle:setVec2(v2, x, y, z, w)
+    self.vertices[2] = v2 or Vec3D:new(nil,
         x or self.vertices[2].x,
         y or self.vertices[2].y,
         z or self.vertices[2].z,
@@ -213,8 +223,8 @@ function Math3D.Triangle:setVec2(v2, x, y, z, w)
 end
 
 -- Setter for third vertex of triangle. This will recalculate the normal for the triangle.
-function Math3D.Triangle:setVec3(v3, x, y, z, w)
-    self.vertices[3] = v3 or Math3D.Vec3D:new(nil,
+function Triangle:setVec3(v3, x, y, z, w)
+    self.vertices[3] = v3 or Vec3D:new(nil,
         x or self.vertices[3].x,
         y or self.vertices[3].y,
         z or self.vertices[3].z,
@@ -225,7 +235,7 @@ end
 
 -- Setter for all vertices of the triangle. This will recalculate the normal for the triangle
 -- after setting all vertices.
-function Math3D.Triangle:setVecs(v1, v2, v3)
+function Triangle:setVecs(v1, v2, v3)
     self.vertices[1] = v1 or self.vertices[1]
     self.vertices[2] = v2 or self.vertices[2]
     self.vertices[3] = v3 or self.vertices[3]
@@ -234,7 +244,7 @@ end
 
 -- Setter for each individual component of each vertex of the triangle. This will recalculate the normal
 -- for the triangle after setting all provided components.
-function Math3D.Triangle:setVecComponents(
+function Triangle:setVecComponents(
     x1, y1, z1, w1,
     x2, y2, z2, w2,
     x3, y3, z3, w3
@@ -257,52 +267,54 @@ function Math3D.Triangle:setVecComponents(
     self:calcNorm()
 end
 
-function Math3D.Triangle:offsetAndScale(offset, scale)
-    for _, vert in ipairs(self.vertices) do
-        vert:offsetAndScale(offset, scale)
-    end
+function Triangle:offsetAndScale(offset, scale)
+    self.vertices[1]:offsetAndScale(offset, scale)
+    self.vertices[2]:offsetAndScale(offset, scale)
+    self.vertices[3]:offsetAndScale(offset, scale)
+    self:calcNorm()
 end
 
-function Math3D.Triangle:calcColourFromLight(directionLight)
-    local dp = self.normal:dot(directionLight.directionNorm)
+function Triangle:calcColourFromLight(directionLight)
+    local dp = self.normal.x * directionLight.directionNorm.x +
+               self.normal.y * directionLight.directionNorm.y +
+               self.normal.z * directionLight.directionNorm.z
     self.colour.r = dp
     self.colour.g = dp
     self.colour.b = dp
 end
 
-function Math3D.Triangle:addVertex(vert)
+function Triangle:addVertex(vert)
     if #self.vertices < 3 then
         table.insert(self.vertices, vert)
     end
 end
 
-function Math3D.Triangle:isFacingCamera(camera)
+function Triangle:isFacingCamera(camera)
     -- Inline the operations so that they are a bit faster
     local x2, y2, z2 = self.vertices[1].x - camera.pos.x, self.vertices[1].y - camera.pos.y, self.vertices[1].z - camera.pos.z
     return self.normal.x * x2 + self.normal.y * y2 + self.normal.z * z2 < 0.0
 end
 
-function Math3D.Triangle.__eq(tri1, tri2)
-    for i = 1, 3 do
-        if tri1.vertices[i] ~= tri2.vertices[i] then
-            return false
-        end
-    end
-    return true
+function Triangle.__eq(tri1, tri2)
+    return tri1.vertices[1] == tri2.vertices[1] and
+           tri1.vertices[2] == tri2.vertices[2] and
+           tri1.vertices[3] == tri2.vertices[3]
 end
 
-function Math3D.Triangle:__tostring()
+function Triangle:__tostring()
     return ("{%s, %s, %s}"):format(self.vertices[1]:__tostring(), self.vertices[2]:__tostring(), self.vertices[3]:__tostring())
 end
 
-Math3D.Mesh = {
+local Mesh = {
     triangles = {},
+    triangleLookup = {},
     mesh = nil,
     isFinalised = function () return false end
 }
+Math3D.Mesh = Mesh
 
-function Math3D.Mesh:new(o, path, batchUsage)
-    o = o or {triangles = {}}
+function Mesh:new(o, path, batchUsage)
+    o = o or {triangles = {}, triangleLookup = {}}
     setmetatable(o, self)
     self.__index = self
     if path then
@@ -317,15 +329,22 @@ function Math3D.Mesh:new(o, path, batchUsage)
 end
 
 -- Adds a triangle to the mesh. This can only be done if the mesh is not finalised.
-function Math3D.Mesh:addTriangle(tri)
+function Mesh:addTriangle(tri)
     if not self:isFinalised() then
+        -- We create a mapping for the 3 new vertices of the triangle to the current index of the triangles array
+        self.triangleLookup[3 * #self.triangles - 2] = #self.triangles
+        self.triangleLookup[3 * #self.triangles - 1] = #self.triangles
+        self.triangleLookup[3 * #self.triangles    ] = #self.triangles
         table.insert(self.triangles, tri)
     end
 end
 
 -- Sets the triangle at the given index to the given value. If the mesh is finalised then the corresponding vertices
 -- will also be set.
-function Math3D.Mesh:setTriangle(i, tri)
+function Mesh:setTriangle(i, tri)
+    self.triangleLookup[3 * i - 2] = i
+    self.triangleLookup[3 * i - 1] = i
+    self.triangleLookup[3 * i    ] = i
     self.triangles[i] = tri
     if self:isFinalised() then
         self.mesh:setVertex(3 * i - 2, tri.vertices[1].x, tri.vertices[1].y, 0, 0, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
@@ -336,25 +355,25 @@ end
 
 -- Instantiates the love.graphics.Mesh that the logical mesh will be drawn to. This should be called when there
 -- are no more triangles to add. Triangles can still be set though.
-function Math3D.Mesh:finalise(batchUsage)
+function Mesh:finalise(batchUsage)
     self.isFinalised = function () return true end
     local vertices = {}
-    for _, triangle in ipairs(self.triangles) do
-        for _, vertex in ipairs(triangle.vertices) do
-            table.insert(vertices, {vertex.x, vertex.y})
-        end
+    for i=1, #self.triangles do
+        table.insert(vertices, {self.triangles[i].vertices[1].x, self.triangles[i].vertices[1].y})
+        table.insert(vertices, {self.triangles[i].vertices[2].x, self.triangles[i].vertices[2].y})
+        table.insert(vertices, {self.triangles[i].vertices[3].x, self.triangles[i].vertices[3].y})
     end
     self.mesh = love.graphics.newMesh(vertices, 'triangles', batchUsage)
 end
 
-function Math3D.Mesh:loadFromOBJ(path, batchUsage)
+function Mesh:loadFromOBJ(path, batchUsage)
     local verts = {}
     for _, line in ipairs(File.readFileLines(path)) do
         if line:sub(1, 1) == 'v' then
-            local vert, i = Math3D.Vec3D:new(), 1
+            local vert, i = Vec3D:new(), 1
             for w in line:gmatch("%S+") do
                 if i > 1 then
-                    vert[Math3D.Vec3D.component(i - 1)] = tonumber(w)
+                    vert[Vec3D.component(i - 1)] = tonumber(w)
                 end
                 i = i + 1
             end
@@ -371,7 +390,7 @@ function Math3D.Mesh:loadFromOBJ(path, batchUsage)
             print('triangle vertex 1:', verts[indices[1]], indices[1])
             print('triangle vertex 2:', verts[indices[2]], indices[2])
             print('triangle vertex 3:', verts[indices[3]], indices[3])
-            local tri = Math3D.Triangle:new(nil,
+            local tri = Triangle:new(nil,
                 verts[indices[1]],
                 verts[indices[2]],
                 verts[indices[3]]
@@ -386,24 +405,32 @@ function Math3D.Mesh:loadFromOBJ(path, batchUsage)
     return true
 end
 
-function Math3D.Mesh:setVertexMap(vertexMap)
+function Mesh:setVertexMap(vertexMap)
     if self:isFinalised() then
         -- We sort the vertex map by the midpoints of each triangle. This implements the painter's algorithm
-        table.sort(vertexMap, function (vi1, vi2)
-            local ti1, ti2 = math.floor((vi1 - 1) / 3) + 1, math.floor((vi2 - 1) / 3) + 1
+        -- table.sort(vertexMap, function (vi1, vi2)
+        --     local ti1, ti2 = self.triangleLookup[vi1], self.triangleLookup[vi2]
+        --     if ti1 ~= ti2 then
+        --         local t1, t2 = self.triangles[ti1], self.triangles[ti2]
+        --         return (t1.vertices[1].z + t1.vertices[2].z + t1.vertices[3].z) / 3.0 >
+        --                (t2.vertices[1].z + t2.vertices[2].z + t2.vertices[3].z) / 3.0
+        --     end
+        --     return vi1 < vi2
+        -- end)
+        vertexMap = shellsort(vertexMap, function (vi1, vi2)
+            local ti1, ti2 = self.triangleLookup[vi1], self.triangleLookup[vi2]
             if ti1 ~= ti2 then
-                local t1 = self.triangles[ti1]
-                local t2 = self.triangles[ti2]
+                local t1, t2 = self.triangles[ti1], self.triangles[ti2]
                 return (t1.vertices[1].z + t1.vertices[2].z + t1.vertices[3].z) / 3.0 >
                        (t2.vertices[1].z + t2.vertices[2].z + t2.vertices[3].z) / 3.0
             end
-			return vi1 < vi2
+            return vi1 < vi2
         end)
         self.mesh:setVertexMap(vertexMap)
     end
 end
 
-function Math3D.Mesh:__tostring()
+function Mesh:__tostring()
     local s = '{'
     for i, triangle in ipairs(self.triangles) do
         s = s .. triangle:__tostring()
@@ -414,14 +441,15 @@ function Math3D.Mesh:__tostring()
     return s
 end
 
-Math3D.Matrix = {
+local Matrix = {
     matrix = {},
     n = 0,
     m = 0,
     k = 0,
 }
+Math3D.Matrix = Matrix
 
-function Math3D.Matrix:_init()
+function Matrix:_init()
     self.matrix = {}
     for i=1, self.n do
         -- create a new row
@@ -432,7 +460,7 @@ function Math3D.Matrix:_init()
     end
 end
 
-function Math3D.Matrix:new(o, n, m, k)
+function Matrix:new(o, n, m, k)
     o = o or {}
     setmetatable(o, self)
     self.__index = self
@@ -443,13 +471,13 @@ function Math3D.Matrix:new(o, n, m, k)
     return o
 end
 
-function Math3D.Matrix:set(n, m, v)
+function Matrix:set(n, m, v)
     self.matrix[n][m] = v
 end
 
-function Math3D.Matrix:multiplyVec3D(i)
+function Matrix:multiplyVec3D(i)
     if self.n == 4 and self.m == 4 then
-        return Math3D.Vec3D:new(nil,
+        return Vec3D:new(nil,
             i.x * self.matrix[1][1] + i.y * self.matrix[2][1] + i.z * self.matrix[3][1] + i.w * self.matrix[4][1],
             i.x * self.matrix[1][2] + i.y * self.matrix[2][2] + i.z * self.matrix[3][2] + i.w * self.matrix[4][2],
             i.x * self.matrix[1][3] + i.y * self.matrix[2][3] + i.z * self.matrix[3][3] + i.w * self.matrix[4][3],
@@ -459,8 +487,8 @@ function Math3D.Matrix:multiplyVec3D(i)
     error("Cannot multiply %dx%d matrix by Vec3D, has to be 4x4"):format(self.n, self.m)
 end
 
-function Math3D.Matrix.makeRotationX(fAngleRad)
-    local matrix = Math3D.Matrix:new(nil, 4, 4)
+function Matrix.makeRotationX(fAngleRad)
+    local matrix = Matrix:new(nil, 4, 4)
     matrix:set(1, 1, 1.0)
     matrix:set(2, 2, math.cos(fAngleRad))
     matrix:set(2, 3, math.sin(fAngleRad))
@@ -470,8 +498,8 @@ function Math3D.Matrix.makeRotationX(fAngleRad)
     return matrix
 end
 
-function Math3D.Matrix.makeRotationY(fAngleRad)
-    local matrix = Math3D.Matrix:new(nil, 4, 4)
+function Matrix.makeRotationY(fAngleRad)
+    local matrix = Matrix:new(nil, 4, 4)
     matrix:set(1, 1, math.cos(fAngleRad))
     matrix:set(1, 3, math.sin(fAngleRad))
     matrix:set(3, 1, -math.sin(fAngleRad))
@@ -481,8 +509,8 @@ function Math3D.Matrix.makeRotationY(fAngleRad)
     return matrix
 end
 
-function Math3D.Matrix.makeRotationZ(fAngleRad)
-    local matrix = Math3D.Matrix:new(nil, 4, 4)
+function Matrix.makeRotationZ(fAngleRad)
+    local matrix = Matrix:new(nil, 4, 4)
     matrix:set(1, 1, math.cos(fAngleRad))
     matrix:set(1, 2, math.sin(fAngleRad))
     matrix:set(2, 1, -math.sin(fAngleRad))
@@ -492,8 +520,8 @@ function Math3D.Matrix.makeRotationZ(fAngleRad)
     return matrix
 end
 
-function Math3D.Matrix.makeTranslation(x, y, z)
-    local matrix = Math3D.Matrix:new(nil, 4, 4)
+function Matrix.makeTranslation(x, y, z)
+    local matrix = Matrix:new(nil, 4, 4)
     matrix:set(1, 1, 1.0)
     matrix:set(2, 2, 1.0)
     matrix:set(3, 3, 1.0)
@@ -504,9 +532,9 @@ function Math3D.Matrix.makeTranslation(x, y, z)
     return matrix
 end
 
-function Math3D.Matrix.__mul(m1, m2)
+function Matrix.__mul(m1, m2)
     if m1.n == m2.n and m1.m == m2.m then
-        local matrix = Math3D.Matrix:new(nil, m1.n, m1.m)
+        local matrix = Matrix:new(nil, m1.n, m1.m)
         for c = 1, m1.m do
             for r = 1, m1.n do
                 matrix:set(r, c,
@@ -522,7 +550,7 @@ function Math3D.Matrix.__mul(m1, m2)
     error("Cannot multiply %dx%d matrix by %dx%d matrix. Must be same dims."):format(m1.n, m1.m, m2.n, m2.m)
 end
 
-function Math3D.Matrix:__tostring()
+function Matrix:__tostring()
     local s = ''
     for i=1, self.n do
         local row = ''
@@ -540,8 +568,8 @@ function Math3D.Matrix:__tostring()
     return s
 end
 
-Math3D.Camera = {
-    pos = Math3D.Vec3D:new(),
+local Camera = {
+    pos = Vec3D:new(),
     near = 0.1,
     far = 1000.0,
     fov = 90.0,
@@ -551,8 +579,9 @@ Math3D.Camera = {
     proj = nil,
     aspect_ratio = nil,
 }
+Math3D.Camera = Camera
 
-function Math3D.Camera:recalcProjMat()
+function Camera:recalcProjMat()
     self.proj:set(1, 1, self.aspect_ratio * self.fov_rad)
     self.proj:set(2, 2, self.fov_rad)
     self.proj:set(3, 3, self.far / (self.far - self.near))
@@ -561,34 +590,35 @@ function Math3D.Camera:recalcProjMat()
     self.proj:set(4, 4, 0.0)
 end
 
-function Math3D.Camera:new(o, x, y, z, near, far, fov, width, height)
+function Camera:new(o, x, y, z, near, far, fov, width, height)
     o = o or {}
     setmetatable(o, self)
     self.__index = self
-    o.pos = Math3D.Vec3D:new(nil, x or 0, y or 0, z or 0)
+    o.pos = Vec3D:new(nil, x or 0, y or 0, z or 0)
     o.near = near or 0.1
     o.far = far or 1000.0
     o.fov = fov or 90.0
     o.fov_rad = math.rad(self.fov)
     o.width = width or 800
     o.height = height or 600
-    o.proj = Math3D.Matrix:new()
+    o.proj = Matrix:new()
     o.aspect_ratio = self.height / self.width
     o:recalcProjMat()
     return o
 end
 
-Math3D.DirectionLight = {
-    direction = Math3D.Vec3D:new(),
-    directionNorm = Math3D.Vec3D:new()
+local DirectionLight = {
+    direction = Vec3D:new(),
+    directionNorm = Vec3D:new()
 }
+Math3D.DirectionLight = DirectionLight
 
-function Math3D.DirectionLight:calcNorm()
+function DirectionLight:calcNorm()
     self.directionNorm.x = self.direction.x
     self.directionNorm.y = self.direction.y
     self.directionNorm.z = self.direction.z
     -- Inlining normalisation for a bit of a speed boost
-    local l = math.sqrt(
+    local l = sqrt(
         self.directionNorm.x * self.directionNorm.x +
         self.directionNorm.y * self.directionNorm.y +
         self.directionNorm.z * self.directionNorm.z
@@ -598,10 +628,10 @@ function Math3D.DirectionLight:calcNorm()
     self.directionNorm.z = self.directionNorm.z / l
 end
 
-function Math3D.DirectionLight:new(o, x, y, z)
+function DirectionLight:new(o, x, y, z)
     o = o or {
-        direction = Math3D.Vec3D:new(),
-        directionNorm = Math3D.Vec3D:new()
+        direction = Vec3D:new(),
+        directionNorm = Vec3D:new()
     }
     setmetatable(o, self)
     self.__index = self
@@ -612,7 +642,7 @@ function Math3D.DirectionLight:new(o, x, y, z)
     return o
 end
 
-function Math3D.DirectionLight:set(x, y, z)
+function DirectionLight:set(x, y, z)
     self.direction.x = x or self.direction.x
     self.direction.y = y or self.direction.y
     self.direction.z = z or self.direction.z
