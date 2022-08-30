@@ -9,9 +9,6 @@ Data = require("data")
 File = require("file")
 
 
-local OFFSET_VIEW_VEC = Vec3D:new(nil, 1, 1, 0)
-local SCALE_VIEW_VEC = Vec3D:new(nil, 0.5 * love.graphics.getWidth(), 0.5 * love.graphics.getHeight(), 1)
-
 local mesh = Mesh:new()
 local camera = Camera:new()
 local light = DirectionLight:new(nil, 0.0, 0.0, -1.0)
@@ -37,7 +34,6 @@ local matTrans = Matrix:new()
 local matWorld = Matrix:new()
 local meshProjected = Mesh:new()
 local pause = false
-local vertexMap = {}
 local fTheta = 0.0
 love.frame = 0
 
@@ -55,41 +51,47 @@ function love.update(dt)
     matWorld = matRotZ * matRotX
     matWorld = matWorld * matTrans
 
-    vertexMap = {}
+    meshProjected:resetVertexMap()
     for i, triangle in ipairs(mesh.triangles) do
         local triTransformed = Triangle:new(nil,
-            matWorld:multiplyVec3D(triangle.vertices[1]),
-            matWorld:multiplyVec3D(triangle.vertices[2]),
-            matWorld:multiplyVec3D(triangle.vertices[3])
+            triangle.vertices[1],
+            triangle.vertices[2],
+            triangle.vertices[3],
+            nil, nil, nil, nil, false
         )
+        triTransformed:multiplyVecsByMatrix(matWorld, true)
+        -- local triTransformed = Triangle:new(nil,
+        --     matWorld:multiplyVec3D(triangle.vertices[1]),
+        --     matWorld:multiplyVec3D(triangle.vertices[2]),
+        --     matWorld:multiplyVec3D(triangle.vertices[3])
+        -- )
 
-        if triTransformed:isFacingCamera(camera) then
-            table.insert(vertexMap, 3 * i - 2)
-            table.insert(vertexMap, 3 * i - 1)
-            table.insert(vertexMap, 3 * i    )
-        end
-
+        -- isFacingCamera and calcColourFromLight both use the transformed world normals of the current triangle.
+        -- We don't have to calculate or pass any normals to any subsequent triangle constructors
+        local addVertexMap = triTransformed:isFacingCamera(camera)
         triTransformed:calcColourFromLight(light)
 
         -- Project the rotated and translated triangle vertices onto the screen using the camera's projection matrix
+        -- local triProjected = Triangle:new(nil,
+        --     camera.proj:multiplyVec3D(triTransformed.vertices[1]),
+        --     camera.proj:multiplyVec3D(triTransformed.vertices[2]),
+        --     camera.proj:multiplyVec3D(triTransformed.vertices[3]),
+        --     triTransformed.colour.r, triTransformed.colour.g, triTransformed.colour.b, triTransformed.colour.a, false
+        -- )
         local triProjected = Triangle:new(nil,
-            camera.proj:multiplyVec3D(triTransformed.vertices[1]),
-            camera.proj:multiplyVec3D(triTransformed.vertices[2]),
-            camera.proj:multiplyVec3D(triTransformed.vertices[3]),
+            triTransformed.vertices[1],
+            triTransformed.vertices[2],
+            triTransformed.vertices[3],
             triTransformed.colour.r, triTransformed.colour.g, triTransformed.colour.b, triTransformed.colour.a, false
         )
-
-        -- Offset vertices from -1.0 to 1.0 into 0.0 to 2.0
-        -- Scale vertices into range 0 to WINDOW_WIDTH and 0 to WINDOW_HEIGHT
-        triProjected:offsetAndScale(OFFSET_VIEW_VEC, SCALE_VIEW_VEC)
-
-        meshProjected:setTriangle(i, triProjected)
+        triProjected:multiplyVecsByMatrix(camera.proj)
+        meshProjected:setTriangle(i, triProjected, addVertexMap)
     end
 
     if not meshProjected:isFinalised() then
         meshProjected:finalise('stream')
     end
-    meshProjected:setVertexMap(vertexMap)
+    meshProjected:setVertexMap()
 
     love.frame = love.frame + 1
     if PROFILING and love.frame % 10 == 0 then
@@ -117,7 +119,7 @@ function love.draw()
     love.graphics.setColor(1, 1, 1, 1)
     love.graphics.print("FPS: " .. tostring(love.timer.getFPS()), 10, 10)
     love.graphics.print("Frames: " .. love.frame, 10, 20)
-    love.graphics.print("Vertices being shown: " .. #vertexMap .. "/" .. #meshProjected.triangles * 3 .. (" %.2f%%"):format(#vertexMap / (#meshProjected.triangles * 3) * 100), 10, 30)
+    love.graphics.print("Vertices being shown: " .. #meshProjected.vertexMap .. "/" .. #meshProjected.triangles * 3 .. (" %.2f%%"):format(#meshProjected.vertexMap / (#meshProjected.triangles * 3) * 100), 10, 30)
     -- love.graphics.print("vertexMap: " .. Misc.tprint(vertexMap) .. " " .. #vertexMap .. " " .. tostring(#vertexMap % 3 == 0) .. " " .. tostring(meshProjected.mesh:getVertexCount()), 10, 20)
     -- meshProjected.mesh:setVertexMap(1, 2, 3)
     love.graphics.setBlendMode("alpha", "premultiplied")

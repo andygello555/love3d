@@ -181,13 +181,13 @@ function Triangle:calcNorm()
     self.normal.z = self.normal.z / l
 end
 
-function Triangle:new(o, v1, v2, v3, r, g, b, a, calcNorm)
+function Triangle:new(o, v1, v2, v3, r, g, b, a, normal)
     if not o then
         o = {
             vertices = {
-                v1 or Vec3D:new(),
-                v2 or Vec3D:new(),
-                v3 or Vec3D:new(),
+                Vec3D:new(nil, v1.x, v1.y, v1.z, v1.w) or Vec3D:new(),
+                Vec3D:new(nil, v2.x, v2.y, v2.z, v2.w) or Vec3D:new(),
+                Vec3D:new(nil, v3.x, v3.y, v3.z, v3.w) or Vec3D:new(),
             },
             colour = Colour:new(nil, r, g, b, a)
         }
@@ -196,8 +196,39 @@ function Triangle:new(o, v1, v2, v3, r, g, b, a, calcNorm)
     self.__index = self
     -- If calcNorm isn't provided or calcNorm is provided and is truthy, then we will
     -- run calcNorm
-    if calcNorm == nil or calcNorm then o:calcNorm() end
+    if normal == nil or normal == true then o:calcNorm()
+    elseif normal ~= false then o.normal = normal end
     return o
+end
+
+function Triangle:multiplyVecsByMatrix(m, calcNorm)
+    local x = self.vertices[1].x * m.matrix[1][1] + self.vertices[1].y * m.matrix[2][1] + self.vertices[1].z * m.matrix[3][1] + self.vertices[1].w * m.matrix[4][1]
+    local y = self.vertices[1].x * m.matrix[1][2] + self.vertices[1].y * m.matrix[2][2] + self.vertices[1].z * m.matrix[3][2] + self.vertices[1].w * m.matrix[4][2]
+    local z = self.vertices[1].x * m.matrix[1][3] + self.vertices[1].y * m.matrix[2][3] + self.vertices[1].z * m.matrix[3][3] + self.vertices[1].w * m.matrix[4][3]
+    local w = self.vertices[1].x * m.matrix[1][4] + self.vertices[1].y * m.matrix[2][4] + self.vertices[1].z * m.matrix[3][4] + self.vertices[1].w * m.matrix[4][4]
+    self.vertices[1].x = x
+    self.vertices[1].y = y
+    self.vertices[1].z = z
+    self.vertices[1].w = w
+
+    x = 1 * self.vertices[2].x * m.matrix[1][1] + self.vertices[2].y * m.matrix[2][1] + self.vertices[2].z * m.matrix[3][1] + self.vertices[2].w * m.matrix[4][1]
+    y = 1 * self.vertices[2].x * m.matrix[1][2] + self.vertices[2].y * m.matrix[2][2] + self.vertices[2].z * m.matrix[3][2] + self.vertices[2].w * m.matrix[4][2]
+    z = 1 * self.vertices[2].x * m.matrix[1][3] + self.vertices[2].y * m.matrix[2][3] + self.vertices[2].z * m.matrix[3][3] + self.vertices[2].w * m.matrix[4][3]
+    w = 1 * self.vertices[2].x * m.matrix[1][4] + self.vertices[2].y * m.matrix[2][4] + self.vertices[2].z * m.matrix[3][4] + self.vertices[2].w * m.matrix[4][4]
+    self.vertices[2].x = x
+    self.vertices[2].y = y
+    self.vertices[2].z = z
+    self.vertices[2].w = w
+
+    x = 1 * self.vertices[3].x * m.matrix[1][1] + self.vertices[3].y * m.matrix[2][1] + self.vertices[3].z * m.matrix[3][1] + self.vertices[3].w * m.matrix[4][1]
+    y = 1 * self.vertices[3].x * m.matrix[1][2] + self.vertices[3].y * m.matrix[2][2] + self.vertices[3].z * m.matrix[3][2] + self.vertices[3].w * m.matrix[4][2]
+    z = 1 * self.vertices[3].x * m.matrix[1][3] + self.vertices[3].y * m.matrix[2][3] + self.vertices[3].z * m.matrix[3][3] + self.vertices[3].w * m.matrix[4][3]
+    w = 1 * self.vertices[3].x * m.matrix[1][4] + self.vertices[3].y * m.matrix[2][4] + self.vertices[3].z * m.matrix[3][4] + self.vertices[3].w * m.matrix[4][4]
+    self.vertices[3].x = x
+    self.vertices[3].y = y
+    self.vertices[3].z = z
+    self.vertices[3].w = w
+    if calcNorm then self:calcNorm() end
 end
 
 -- Setter for first vertex of triangle. This will recalculate the normal for the triangle.
@@ -308,13 +339,20 @@ end
 local Mesh = {
     triangles = {},
     triangleLookup = {},
+    vertexMap = {},
     mesh = nil,
-    isFinalised = function () return false end
+    isFinalised = function () return false end,
+    vertexFormat = {
+        {"VertexPosition", "float", 4},
+        {"VertexTexCoord", "float", 2},
+        {"VertexNormal", "float", 3},
+        {"VertexColor", "byte", 4},
+    }
 }
 Math3D.Mesh = Mesh
 
 function Mesh:new(o, path, batchUsage)
-    o = o or {triangles = {}, triangleLookup = {}}
+    o = o or {triangles = {}, triangleLookup = {}, vertexMap = {}}
     setmetatable(o, self)
     self.__index = self
     if path then
@@ -341,15 +379,20 @@ end
 
 -- Sets the triangle at the given index to the given value. If the mesh is finalised then the corresponding vertices
 -- will also be set.
-function Mesh:setTriangle(i, tri)
+function Mesh:setTriangle(i, tri, addVertexMap)
     self.triangleLookup[3 * i - 2] = i
     self.triangleLookup[3 * i - 1] = i
     self.triangleLookup[3 * i    ] = i
+    if addVertexMap then
+        table.insert(self.vertexMap, 3 * i - 2)
+        table.insert(self.vertexMap, 3 * i - 1)
+        table.insert(self.vertexMap, 3 * i    )
+    end
     self.triangles[i] = tri
     if self:isFinalised() then
-        self.mesh:setVertex(3 * i - 2, tri.vertices[1].x, tri.vertices[1].y, 0, 0, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
-        self.mesh:setVertex(3 * i - 1, tri.vertices[2].x, tri.vertices[2].y, 0, 0, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
-        self.mesh:setVertex(3 * i    , tri.vertices[3].x, tri.vertices[3].y, 0, 0, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
+        self.mesh:setVertex(3 * i - 2, tri.vertices[1].x, tri.vertices[1].y, tri.vertices[1].z, tri.vertices[1].w, 0, 0, tri.normal.x, tri.normal.y, tri.normal.z, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
+        self.mesh:setVertex(3 * i - 1, tri.vertices[2].x, tri.vertices[2].y, tri.vertices[2].z, tri.vertices[2].w, 0, 0, tri.normal.x, tri.normal.y, tri.normal.z, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
+        self.mesh:setVertex(3 * i    , tri.vertices[3].x, tri.vertices[3].y, tri.vertices[3].z, tri.vertices[3].w, 0, 0, tri.normal.x, tri.normal.y, tri.normal.z, tri.colour.r, tri.colour.g, tri.colour.b, tri.colour.a)
     end
 end
 
@@ -359,11 +402,38 @@ function Mesh:finalise(batchUsage)
     self.isFinalised = function () return true end
     local vertices = {}
     for i=1, #self.triangles do
-        table.insert(vertices, {self.triangles[i].vertices[1].x, self.triangles[i].vertices[1].y})
-        table.insert(vertices, {self.triangles[i].vertices[2].x, self.triangles[i].vertices[2].y})
-        table.insert(vertices, {self.triangles[i].vertices[3].x, self.triangles[i].vertices[3].y})
+        table.insert(vertices, {
+            self.triangles[i].vertices[1].x,
+            self.triangles[i].vertices[1].y,
+            self.triangles[i].vertices[1].z,
+            self.triangles[i].vertices[1].w,
+            0, 0,
+            self.triangles[i].normal.x,
+            self.triangles[i].normal.y,
+            self.triangles[i].normal.z
+        })
+        table.insert(vertices, {
+            self.triangles[i].vertices[2].x,
+            self.triangles[i].vertices[2].y,
+            self.triangles[i].vertices[2].z,
+            self.triangles[i].vertices[2].w,
+            0, 0,
+            self.triangles[i].normal.x,
+            self.triangles[i].normal.y,
+            self.triangles[i].normal.z
+        })
+        table.insert(vertices, {
+            self.triangles[i].vertices[3].x,
+            self.triangles[i].vertices[3].y,
+            self.triangles[i].vertices[3].z,
+            self.triangles[i].vertices[3].w,
+            0, 0,
+            self.triangles[i].normal.x,
+            self.triangles[i].normal.y,
+            self.triangles[i].normal.z
+        })
     end
-    self.mesh = love.graphics.newMesh(vertices, 'triangles', batchUsage)
+    self.mesh = love.graphics.newMesh(self.vertexFormat, vertices, 'triangles', batchUsage)
 end
 
 function Mesh:loadFromOBJ(path, batchUsage)
@@ -405,8 +475,15 @@ function Mesh:loadFromOBJ(path, batchUsage)
     return true
 end
 
+function Mesh:addVertexMap(triangleIndex)
+    table.insert(self.vertexMap, 3 * triangleIndex - 2)
+    table.insert(self.vertexMap, 3 * triangleIndex - 1)
+    table.insert(self.vertexMap, 3 * triangleIndex    )
+end
+
 function Mesh:setVertexMap(vertexMap)
     if self:isFinalised() then
+        vertexMap = vertexMap or self.vertexMap
         -- We sort the vertex map by the midpoints of each triangle. This implements the painter's algorithm
         -- table.sort(vertexMap, function (vi1, vi2)
         --     local ti1, ti2 = self.triangleLookup[vi1], self.triangleLookup[vi2]
@@ -428,6 +505,10 @@ function Mesh:setVertexMap(vertexMap)
         end)
         self.mesh:setVertexMap(vertexMap)
     end
+end
+
+function Mesh:resetVertexMap()
+    self.vertexMap = {}
 end
 
 function Mesh:__tostring()
